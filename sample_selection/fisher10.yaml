@@ -1,0 +1,192 @@
+parameters:
+  Omega_k: 0.0
+  Omega_g: 0.0
+  w0: -1.0
+  wa: 0.0
+  T_CMB: 2.7
+  Neff: 0
+  m_nu: 0.0
+  transfer_function: 'bbks'
+  mass_function: 'tinker'
+  
+  Omega_c: 0.22
+  Omega_b: 0.0468
+  h: 0.69
+  sigma8: 0.80
+  n_s: 0.968
+  
+  bias_lens0: 0.883
+  bias_lens1: 0.908
+  bias_lens2: 0.715
+  bias_lens3: 0.778
+  bias_lens4: 1.185
+  bias_lens5: 1.332
+  bias_lens6: 1.15
+  bias_lens7: 1.465
+  bias_lens8: 1.912
+  bias_lens9: 1.997
+
+  {% for i in range(10) %}
+  nk{{i}}_delta_z: 0.0
+  {% endfor %}
+  
+  {% for i in range(5) %}
+  gk{{i}}_delta_z: 0.0
+  {% endfor %}
+  
+  {% for i in range(5) %}
+  gk{{ i }}_mult_bias: 0.0
+  {% endfor %}
+
+cosmosis: 
+  sampler: fisher
+  debug: False
+  quiet: True
+  mpi: True
+  test: 
+    fatal_erros: True
+  parameters: 
+    sigma8: [0.60, 0.80, 1.00]
+    Omega_c: [0.1, 0.22, 0.4]
+    bias_lens0: [0.2, 0.883, 4.0]
+    bias_lens1: [0.2, 0.908, 4.0]
+    bias_lens2: [0.2, 0.715, 4.0]
+    bias_lens3: [0.2, 0.778, 4.0]
+    bias_lens4: [0.2, 1.185, 4.0]
+    bias_lens5: [0.2, 1.332, 4.0]
+    bias_lens6: [0.2, 1.15, 4.0]
+    bias_lens7: [0.2, 1.465, 4.0]
+    bias_lens8: [0.2, 1.912, 4.0]
+    bias_lens9: [0.2, 1.997, 4.0]
+    
+    {% for i in range(10) %}
+    nk{{i}}_delta_z: [-0.5, 0, 0.5]
+    {% endfor %}
+    
+    {% for i in range(5) %}
+    gk{{i}}_delta_z: [-0.5, 0, 0.5]
+    {% endfor %}
+    
+    {% for i in range(5) %}
+    gk{{ i }}_mult_bias: [-0.5, 0, 0.5]
+    {% endfor %}
+    
+priors: 
+  module: firecrown.priors
+  
+  Omega_c: 
+    kind: uniform
+    loc: 0.1
+    scale: 0.3
+  
+  sigma8: 
+    kind: uniform
+    loc: 0.60
+    scale: 0.40
+
+  {% for i in range(10) %}
+  bias_lens{{i}}: 
+    kind: uniform 
+    loc: 0.2
+    scale: 3.8
+  {% endfor %}
+  
+  {% for scale in [0.00375, 0.00405, 0.00435, 0.00465, 0.00495, 0.00525, 0.00555, 0.00585, 0.00615, 0.00645] %}
+  nk{{ loop.index0 }}_delta_z:
+    kind: norm
+    loc: 0.0
+    scale: {{ scale }}
+  {% endfor %}
+  
+  {% for scale in [0.00135914, 0.00162368, 0.00190571, 0.00229336, 0.00325154] %}
+  gk{{ loop.index0 }}_delta_z:
+    kind: norm
+    loc: 0.0
+    scale: {{ scale }}
+  {% endfor %}
+  
+  {% for scale in [0.003, 0.003, 0.003, 0.003, 0.003] %}
+  gk{{loop.index0}}_mult_bias:
+    kind: norm
+    loc: 0.0
+    scale: {{scale}}
+  {% endfor %}
+  
+    
+two_point: 
+  module: firecrown.ccl.two_point
+  sacc_data: fits/25.3.fits
+  
+  sources: 
+    src: 
+      kind: CMBLSource
+      sacc_tracer: ck
+
+    {% for i in range(10) %}
+    NKlens{{i}}: 
+      kind: NumberCountsSource
+      sacc_tracer: gc{{i}}
+      bias: bias_lens{{i}}
+      systematics:
+        - delta_z_nk{{ i }}
+    {% endfor %}
+    
+    {% for i in range(5) %}
+    GKlens{{i}}:
+      kind: WLSource
+      sacc_tracer: wl{{i}}
+      systematics:
+        - delta_z_gk{{ i }}
+        - shear_bias_gk{{ i }}
+    {% endfor %}
+
+
+  systematics:
+    {% for i in range(10) %}
+    delta_z_nk{{ i }}:
+      kind: PhotoZShiftBias
+      delta_z: nk{{i}}_delta_z
+    {% endfor %}
+    
+    {% for i in range(5) %}
+    delta_z_gk{{ i }}:
+      kind: PhotoZShiftBias
+      delta_z: gk{{i}}_delta_z
+    {% endfor %}
+
+    {% for i in range(5) %}
+    shear_bias_gk{{ i }}:
+      kind: MultiplicativeShearBias
+      m: gk{{ i }}_mult_bias
+    {% endfor %}
+
+
+  statistics: 
+    {% for scalecut in [48.45, 38.27, 32.76, 29.37, 27.13, 25.58, 24.47, 23.67, 23.09, 22.66] %}
+    NK{{loop.index0}}: 
+      sources: ['NKlens{{loop.index0}}','src']
+      sacc_data_type: 'cmbGalaxy_convergenceDensity_xi'
+      ell_or_theta_min: {{scalecut}}
+      ell_or_theta_max: 250.0
+    {% endfor %} 
+    
+    {% for scalecut in [37.63, 27.64, 23.99, 22.27, 22.5] %}
+    GK{{loop.index0}}:
+      sources: ['GKlens{{loop.index0}}','src']
+      sacc_data_type: 'cmbGalaxy_convergenceShear_xi_t'
+      ell_or_theta_min: {{scalecut}}
+      ell_or_theta_max: 250.0
+    {% endfor %}
+
+    
+  likelihood: 
+    kind: ConstGaussianLogLike 
+    data_vector: 
+    {% for i in range(10) %}
+      - NK{{i}}
+    {% endfor %}
+    
+    {% for i in range(5) %}
+      - GK{{i}}
+    {% endfor %}
+        
