@@ -1,0 +1,154 @@
+parameters:
+  Omega_k: 0.0
+  Omega_g: 0.0
+  T_CMB: 2.7
+  Neff: 0
+  m_nu: 0.0
+  transfer_function: 'bbks'
+  mass_function: 'tinker'
+  
+  Omega_c: 0.2664
+  sigma8: 0.831
+  Omega_b: 0.0492
+  h: 0.6727
+  n_s: 0.9645
+  w0: -1.0
+  wa: 0.0
+  
+  A0: 0.0
+
+  
+  {% for i in range(5) %}
+  gk{{i}}_delta_z: 0.0
+  {% endfor %}
+  
+  {% for i in range(5) %}
+  gk{{ i }}_mult_bias: 0.0
+  {% endfor %}
+
+cosmosis: 
+  fisher:
+    step_size: 0.005
+  sampler: fisher
+  debug: False
+  quiet: True
+  mpi: True
+  test: 
+    fatal_erros: True
+  parameters: 
+    sigma8: [0.60, 0.831, 1.00]
+    Omega_c: [0.1, 0.2664, 0.4]
+    Omega_b: [0.04, 0.0492, 0.06]
+    n_s: [0.80, 0.9645, 1.15]
+    h: [0.55, .6727, 0.80]
+
+    A0: [-5., 0., 5.]
+
+    
+    {% for i in range(5) %}
+    gk{{i}}_delta_z: [-0.5, 0, 0.5]
+    {% endfor %}
+    
+    {% for i in range(5) %}
+    gk{{ i }}_mult_bias: [-0.5, 0, 0.5]
+    {% endfor %}
+    
+priors: 
+  module: firecrown.priors
+  
+  Omega_c: 
+    kind: norm
+    loc: 0.2664
+    scale: 0.20
+  
+  sigma8: 
+    kind: norm
+    loc: 0.831
+    scale: 0.14
+
+  Omega_b: 
+    kind: norm
+    loc: 0.0492
+    scale: 0.006
+    
+  h:
+    kind: norm
+    loc: 0.6727
+    scale: 0.063
+    
+  n_s: 
+    kind: norm
+    loc: 0.9645
+    scale: 0.08
+    
+  A0: 
+    kind: uniform
+    loc: -5.0
+    scale: 10.0
+  
+  {% for scale in [0.00136, 0.00162, 0.00191, 0.00229, 0.00325] %}
+  gk{{ loop.index0 }}_delta_z:
+    kind: norm
+    loc: 0.0
+    scale: {{ scale }}
+  {% endfor %}
+  
+  {% for scale in [0.003, 0.003, 0.003, 0.003, 0.003] %}
+  gk{{loop.index0}}_mult_bias:
+    kind: norm
+    loc: 0.0
+    scale: {{scale}}
+  {% endfor %}
+  
+    
+two_point: 
+  module: firecrown.ccl.two_point
+  sacc_data: SRD_sm/sacc.fits
+  
+  sources: 
+    src: 
+      kind: CMBLSource
+      sacc_tracer: ck
+    
+    {% for i in range(5) %}
+    GKlens{{i}}:
+      kind: WLSource
+      sacc_tracer: wl{{i}}
+      ia_bias: A0
+      systematics:
+        - delta_z_gk{{ i }}
+        - shear_bias_gk{{ i }}
+    {% endfor %}
+
+
+  systematics:
+    {% for i in range(5) %}
+    delta_z_gk{{ i }}:
+      kind: PhotoZShiftBias
+      delta_z: gk{{i}}_delta_z
+    {% endfor %}
+
+    {% for i in range(5) %}
+    shear_bias_gk{{ i }}:
+      kind: MultiplicativeShearBias
+      m: gk{{ i }}_mult_bias
+    {% endfor %}
+
+
+  statistics:     
+    {% for i in range(5) %}
+    GK{{i}}:
+      sources: ['GKlens{{i}}','src']
+      sacc_data_type: 'cmbGalaxy_convergenceShear_xi_t'
+      ell_or_theta_min: 5.0
+      ell_or_theta_max: 250.0
+    {% endfor %}
+
+    
+  likelihood: 
+    kind: ConstGaussianLogLike 
+    data_vector: 
+    {% for i in range(5) %}
+      - GK{{i}}
+    {% endfor %}
+        
